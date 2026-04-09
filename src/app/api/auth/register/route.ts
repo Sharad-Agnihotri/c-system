@@ -1,49 +1,27 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { sql, initDB } from "@/lib/db";
-import { hashPassword, signToken } from "@/lib/auth";
+import { signToken } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    await initDB();
+    const { name, email } = await req.json();
 
-    const { name, email, password } = await req.json();
-
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { error: "Name, email, and password are required" },
-        { status: 400 }
-      );
-    }
-
-    // Check if user already exists
-    const { rows: existing } = await sql`
-      SELECT id FROM users WHERE email = ${email}
-    `;
-    if (existing.length > 0) {
-      return NextResponse.json(
-        { error: "User with this email already exists" },
-        { status: 400 }
-      );
-    }
-
+    // MOCKED SYSTEM: No database check, just return success
     const id = uuidv4();
-    const hashedPassword = await hashPassword(password);
     const createdAt = new Date().toISOString();
 
-    // Insert user into database
-    await sql`
-      INSERT INTO users (id, name, email, password, "createdAt")
-      VALUES (${id}, ${name}, ${email}, ${hashedPassword}, ${createdAt})
-    `;
+    const mockUser = {
+      id,
+      name: name || "Demo User",
+      email: email || "demo@example.com",
+      createdAt
+    };
 
-    // Generate JWT
-    const token = signToken({ userId: id, email });
+    const token = signToken({ userId: id, email: mockUser.email });
 
-    // Set cookie and return success
     const response = NextResponse.json({
       success: true,
-      user: { id, name, email, createdAt },
+      user: mockUser,
       token,
     });
 
@@ -59,7 +37,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("Registration error:", error);
     return NextResponse.json(
-      { error: error?.message || "An error occurred during registration" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

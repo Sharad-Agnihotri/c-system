@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { sql, initDB } from "@/lib/db";
 import { verifyToken } from "@/lib/auth";
 
 export async function GET() {
   try {
-    await initDB();
-
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -14,22 +11,24 @@ export async function GET() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const decoded = verifyToken(token);
-    const { rows } = await sql`
-      SELECT id, name, email, avatar, "createdAt" FROM users WHERE id = ${decoded.userId}
-    `;
-    const user = rows[0];
+    try {
+      const decoded = verifyToken(token);
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      // MOCKED SYSTEM: Return user from token or mock info
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: decoded.userId,
+          name: "Active User",
+          email: decoded.email,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    } catch (e) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
-
-    return NextResponse.json({
-      success: true,
-      user,
-    });
   } catch (error) {
     console.error("Auth check error:", error);
-    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

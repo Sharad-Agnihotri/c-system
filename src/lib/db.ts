@@ -1,16 +1,10 @@
-import { sql } from "@vercel/postgres";
-
+// This file is now a stub since authentication is bypassed.
 export async function initDB() {
-  await sql`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      avatar TEXT,
-      "createdAt" TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
+  console.log("Database initialization skipped (auth bypassed)");
+  return Promise.resolve();
 }
 
-export { sql };
+export const sql = () => {
+  console.warn("SQL called while auth bypassed.");
+  return Promise.resolve({ rows: [] });
+};
