@@ -1,7 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import json
 import fitz  # PyMuPDF
-import spacy
 import os
 import re
 import tempfile
@@ -19,15 +18,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Load spaCy model
-try:
-    nlp = spacy.load("en_core_web_sm")
-except:
-    import subprocess
-    import sys
-    subprocess.run([sys.executable, "-m", "spacy", "download", "en_core_web_sm"])
-    nlp = spacy.load("en_core_web_sm")
 
 # ── Comprehensive Skill Database with required levels per role ──
 SKILL_DB = {
@@ -117,7 +107,6 @@ def analyze_skill_depth(skill_name, text_lower):
     return min(35 + (count * 12) + depth_boost, 95)
 
 def parse_resume(text):
-    doc = nlp(text)
     text_lower = text.lower()
     found_skills = []
     found_skill_names = set()
