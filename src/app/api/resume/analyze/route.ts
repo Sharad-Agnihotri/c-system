@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { execSync } from "child_process";
 import OpenAI from "openai";
-import fs from "fs";
-import path from "path";
-import os from "os";
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -19,30 +15,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // 1. Save file to temporary directory
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const tempDir = os.tmpdir();
-    const tempFilePath = path.join(tempDir, `resume_${Date.now()}.pdf`);
-    fs.writeFileSync(tempFilePath, buffer);
-
-    // 2. Run Python analysis
+    // 2. Run Python analysis via Railway Backend
     let pythonOutput;
     try {
-      const scriptPath = path.join(process.cwd(), "src/lib/python/analyze_resume.py");
-      const command = `python "${scriptPath}" "${tempFilePath}"`;
-      pythonOutput = JSON.parse(execSync(command, { encoding: "utf8" }));
+      // Forward the file to the Railway backend
+      const railwayFormData = new FormData();
+      railwayFormData.append("file", file);
+
+      // Using the Railway URL provided
+      const railwayResponse = await fetch("https://trustworthy-growth-production-f7d6.up.railway.app/analyze", {
+        method: "POST",
+        body: railwayFormData,
+      });
+
+      if (!railwayResponse.ok) {
+        throw new Error(`Railway backend responded with status: ${railwayResponse.status}`);
+      }
+
+      pythonOutput = await railwayResponse.json();
       
       if (!pythonOutput.success) {
-         throw new Error(pythonOutput.error || "Python analysis failed");
+         throw new Error(pythonOutput.error || "Python analysis failed on Railway");
       }
-    } catch (pyError: any) {
-      console.error("Python Error:", pyError);
-      return NextResponse.json({ error: "Failed to parse PDF: " + pyError.message }, { status: 500 });
-    } finally {
-      // Cleanup temp file
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
+    } catch (apiError: any) {
+      console.error("Railway Backend Error:", apiError);
+      return NextResponse.json({ error: "Failed to parse PDF via backend: " + apiError.message }, { status: 500 });
     }
 
     // 3. Use OpenAI to structure and enhance the data (with fallback)
