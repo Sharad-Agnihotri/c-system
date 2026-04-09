@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import db from "@/lib/db";
+import { sql, initDB } from "@/lib/db";
 import { hashPassword, signToken } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    await initDB();
+
     const { name, email, password } = await req.json();
 
     if (!name || !email || !password) {
@@ -15,8 +17,10 @@ export async function POST(req: Request) {
     }
 
     // Check if user already exists
-    const existingUser = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-    if (existingUser) {
+    const { rows: existing } = await sql`
+      SELECT id FROM users WHERE email = ${email}
+    `;
+    if (existing.length > 0) {
       return NextResponse.json(
         { error: "User with this email already exists" },
         { status: 400 }
@@ -28,9 +32,10 @@ export async function POST(req: Request) {
     const createdAt = new Date().toISOString();
 
     // Insert user into database
-    db.prepare(
-      "INSERT INTO users (id, name, email, password, createdAt) VALUES (?, ?, ?, ?, ?)"
-    ).run(id, name, email, hashedPassword, createdAt);
+    await sql`
+      INSERT INTO users (id, name, email, password, "createdAt")
+      VALUES (${id}, ${name}, ${email}, ${hashedPassword}, ${createdAt})
+    `;
 
     // Generate JWT
     const token = signToken({ userId: id, email });

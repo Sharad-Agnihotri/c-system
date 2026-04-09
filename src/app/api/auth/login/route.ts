@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import db from "@/lib/db";
+import { sql, initDB } from "@/lib/db";
 import { comparePassword, signToken } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    await initDB();
+
     const { email, password } = await req.json();
 
     if (!email || !password) {
@@ -14,7 +16,11 @@ export async function POST(req: Request) {
     }
 
     // Find user in database
-    const user: any = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+    const { rows } = await sql`
+      SELECT * FROM users WHERE email = ${email}
+    `;
+    const user = rows[0];
+
     if (!user) {
       return NextResponse.json(
         { error: "Invalid email or password" },
