@@ -15,30 +15,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // 2. Run Python analysis via Railway Backend
+    // 2. Run Python analysis via Vercel Internal Backend
     let pythonOutput;
     try {
-      // Forward the file to the Railway backend
-      const railwayFormData = new FormData();
-      railwayFormData.append("file", file);
+      // Forward the file to the internal Python API
+      const pythonFormData = new FormData();
+      pythonFormData.append("file", file);
 
-      // Using the Railway URL provided
-      const railwayResponse = await fetch("https://trustworthy-growth-production-f7d6.up.railway.app/analyze", {
+      // Determine Base URL (works in local dev and Vercel PROD)
+      const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
+      const host = process.env.VERCEL_URL || request.headers.get("host") || "localhost:3000";
+      const baseUrl = `${protocol}://${host}`;
+
+      const pythonResponse = await fetch(`${baseUrl}/api/python/analyze`, {
         method: "POST",
-        body: railwayFormData,
+        body: pythonFormData,
       });
 
-      if (!railwayResponse.ok) {
-        throw new Error(`Railway backend responded with status: ${railwayResponse.status}`);
+      if (!pythonResponse.ok) {
+        throw new Error(`Python backend responded with status: ${pythonResponse.status}`);
       }
 
-      pythonOutput = await railwayResponse.json();
+      pythonOutput = await pythonResponse.json();
       
       if (!pythonOutput.success) {
-         throw new Error(pythonOutput.error || "Python analysis failed on Railway");
+         throw new Error(pythonOutput.error || "Python analysis failed on Vercel Backend");
       }
     } catch (apiError: any) {
-      console.error("Railway Backend Error:", apiError);
+      console.error("Vercel Backend Error:", apiError);
       return NextResponse.json({ error: "Failed to parse PDF via backend: " + apiError.message }, { status: 500 });
     }
 
